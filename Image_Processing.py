@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import sys
 
+
 ######################
 # FUNCTION DEFINITIONS
 ######################
@@ -23,7 +24,7 @@ def doContrast(arr, param):
 
 def doNegation(arr):
     arr = 255 - arr
-    arr[arr > 255] = 255
+    arr[arr > 255] = 255;
     arr[arr < 0] = 0
     return arr
 
@@ -38,6 +39,32 @@ def doHorizontalFlip(arr):
 def doDiagonalFlip(arr):
     arr = arr[::-1, ::-1]
     return arr
+
+
+def doArithmeticMeanFilter(arr, filter_size):
+    print("Applying Arithmetic Mean Filter with size:", filter_size)
+    filter_size = int(filter_size)
+    pad_size = filter_size // 2
+
+    # Pad the array to handle the edges
+    if arr.ndim == 2:  # grayscale image
+        padded_arr = np.pad(arr, pad_size, mode='constant', constant_values=0)
+    else:  # color image
+        padded_arr = np.pad(arr, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='constant',
+                            constant_values=0)
+
+    new_arr = np.zeros_like(arr)
+
+    # Apply the arithmetic mean filter
+    for i in range(arr.shape[0]):
+        for j in range(arr.shape[1]):
+            if arr.ndim == 2:  # grayscale image
+                new_arr[i, j] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size])
+            else:  # color image
+                for c in range(arr.shape[2]):  # loop through color channels
+                    new_arr[i, j, c] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size, c])
+
+    return new_arr
 
 ###########################
 # HERE THE MAIN PART STARTS
@@ -76,6 +103,8 @@ else:
         arr = doBrightness(arr, param)
     elif command == '--contrast':
         arr = doContrast(arr, param)
+    elif command == '--arithmeticMeanFilter':
+        arr = doArithmeticMeanFilter(arr, param)  # param is the filter size (e.g., 3, 5, etc.)
     else:
         print("Unknown command: " + command)
         sys.exit()
