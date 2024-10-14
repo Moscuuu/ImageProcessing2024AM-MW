@@ -46,22 +46,20 @@ def doArithmeticMeanFilter(arr, filter_size):
     filter_size = int(filter_size)
     pad_size = filter_size // 2
 
-    # Pad the array to handle the edges
-    if arr.ndim == 2:  # grayscale image
+    if arr.ndim == 2:  # grayscale
         padded_arr = np.pad(arr, pad_size, mode='constant', constant_values=0)
-    else:  # color image
+    else:  # color
         padded_arr = np.pad(arr, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='constant',
                             constant_values=0)
 
     new_arr = np.zeros_like(arr)
 
-    # Apply the arithmetic mean filter
     for i in range(arr.shape[0]):
         for j in range(arr.shape[1]):
-            if arr.ndim == 2:  # grayscale image
+            if arr.ndim == 2:  # grayscale
                 new_arr[i, j] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size])
             else:  # color image
-                for c in range(arr.shape[2]):  # loop through color channels
+                for c in range(arr.shape[2]):
                     new_arr[i, j, c] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size, c])
 
     return new_arr
