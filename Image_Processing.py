@@ -24,7 +24,7 @@ def doContrast(arr, param):
 
 def doNegation(arr):
     arr = 255 - arr
-    arr[arr > 255] = 255;
+    arr[arr > 255] = 255
     arr[arr < 0] = 0
     return arr
 
@@ -40,6 +40,26 @@ def doDiagonalFlip(arr):
     arr = arr[::-1, ::-1]
     return arr
 
+def doEnlarge(arr, factor):
+    print("Function doEnlarge invoked with factor: " + factor)
+    factor = float(factor)
+    height = len(arr)
+    width = len(arr[0])
+    new_height = int(height * factor)
+    new_width = int(width * factor)
+
+    new_arr = [[0] * new_width for _ in range(new_height)]
+
+    for i in range(new_height):
+        for j in range(new_width):
+            new_arr[i][j] = arr[int(i / factor)][int(j / factor)]
+
+    return new_arr
+
+def doShrink(arr, factor):
+    print("Function doShrink invoked with factor: " + factor)
+    arr = arr[::int(factor), ::int(factor)]
+    return arr
 
 def doArithmeticMeanFilter(arr, filter_size):
     print("Applying Arithmetic Mean Filter with size:", filter_size)
@@ -101,6 +121,10 @@ else:
         arr = doBrightness(arr, param)
     elif command == '--contrast':
         arr = doContrast(arr, param)
+    elif command == '--enlarge':
+        arr = doEnlarge(arr, param)
+    elif command == '--shrink':
+        arr = doShrink(arr, param)
     elif command == '--arithmeticMeanFilter':
         arr = doArithmeticMeanFilter(arr, param)  # param is the filter size (e.g., 3, 5, etc.)
     else:
