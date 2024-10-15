@@ -84,6 +84,25 @@ def doArithmeticMeanFilter(arr, filter_size):
 
     return new_arr
 
+def mean_square_error(arr1, arr2):
+    if arr1.shape != arr2.shape:
+        raise ValueError("Input arrays must have the same dimensions.")
+
+    error = 0.0
+    height, width, *channels = arr1.shape
+    num_elements = height * width * (channels[0] if channels else 1)
+
+    for i in range(height):
+        for j in range(width):
+            if channels:
+                for c in range(channels[0]):
+                    error += (arr1[i][j][c] - arr2[i][j][c]) ** 2
+            else:
+                error += (arr1[i][j] - arr2[i][j]) ** 2
+
+    mse = error / num_elements
+    return mse
+
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
@@ -111,6 +130,15 @@ if len(sys.argv) == 2:
         arr = doHorizontalFlip(arr)
     elif sys.argv[1] == '--diagonalFlip':
         arr = doDiagonalFlip(arr)
+    elif sys.argv[1] == '--mse':
+        im2 = Image.open("lenac_normal1.bmp")
+        arr2 = np.array(im2.getdata())
+        if arr2.ndim == 1:  # grayscale
+            arr2 = arr2.reshape(im.size[1], im.size[0])
+        else:
+            arr2 = arr2.reshape(im.size[1], im.size[0], numColorChannels)
+        mse = mean_square_error(arr, arr2)
+        print("Mean Square Error:", mse)
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
