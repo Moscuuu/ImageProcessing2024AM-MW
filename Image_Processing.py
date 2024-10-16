@@ -103,20 +103,85 @@ def mean_square_error(arr1, arr2):
     mse = error / num_elements
     return mse
 
+
+def peak_mean_square_error(arr1, arr2):
+    if arr1.shape != arr2.shape:
+        raise ValueError("Input arrays must have the same dimensions.")
+
+    # Calculate MSE
+    mse = np.mean((arr1 - arr2) ** 2)
+
+    # Normalize by the square of the maximum possible pixel value
+    max_pixel_value = 255.0
+    pmse = mse / (max_pixel_value ** 2)
+
+    return pmse
+
+def signal_to_noise_ratio(original, noisy):
+    if original.shape != noisy.shape:
+        raise ValueError("Input arrays must have the same dimensions.")
+
+    # Calculate the mean signal value
+    mean_signal = np.mean(original)
+
+    # Calculate the noise
+    noise = original - noisy
+
+    # Calculate the mean noise value
+    mean_noise = np.mean(noise)
+
+    # Compute SNR
+    snr = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2))
+
+    return snr
+
+def peak_signal_to_noise_ratio(original, noisy):
+    if original.shape != noisy.shape:
+        raise ValueError("Input arrays must have the same dimensions.")
+
+    # Calculate MSE
+    mse = np.mean((original - noisy) ** 2)
+    if mse == 0:
+        return float('inf')
+
+    # Maximum possible pixel value
+    max_pixel_value = 255.0
+
+    # Compute PSNR
+    psnr = 10 * np.log10((max_pixel_value ** 2) / mse)
+
+    return psnr
+
+def maximum_difference(arr1, arr2):
+    if arr1.shape != arr2.shape:
+        raise ValueError("Input arrays must have the same dimensions.")
+
+    # Calculate the absolute differences
+    differences = np.abs(arr1 - arr2)
+
+    # Find the maximum difference
+    max_diff = np.max(differences)
+
+    return max_diff
+
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
 im = Image.open("lenac.bmp")
+im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
+arr2 = np.array(im2.getdata())
+
 if arr.ndim == 1: #grayscale
     numColorChannels = 1
     arr = arr.reshape(im.size[1], im.size[0])
+    arr2 = arr2.reshape(im.size[1], im.size[0])
 else:
     numColorChannels = arr.shape[1]
     arr = arr.reshape(im.size[1], im.size[0], numColorChannels)
-
+    arr2 = arr2.reshape(im.size[1], im.size[0], numColorChannels)
 if len(sys.argv) == 1:
     print("No command line parameters given.\n")
     sys.exit()
@@ -131,14 +196,20 @@ if len(sys.argv) == 2:
     elif sys.argv[1] == '--diagonalFlip':
         arr = doDiagonalFlip(arr)
     elif sys.argv[1] == '--mse':
-        im2 = Image.open("lenac_normal1.bmp")
-        arr2 = np.array(im2.getdata())
-        if arr2.ndim == 1:  # grayscale
-            arr2 = arr2.reshape(im.size[1], im.size[0])
-        else:
-            arr2 = arr2.reshape(im.size[1], im.size[0], numColorChannels)
         mse = mean_square_error(arr, arr2)
         print("Mean Square Error:", mse)
+    elif sys.argv[1] == '--pmse':
+        pmse = peak_mean_square_error(arr, arr2)
+        print("Peak Mean Square Error:", pmse)
+    elif sys.argv[1] == '--snr':
+        snr = signal_to_noise_ratio(arr, arr2)
+        print("Signal to Noise Ratio:", snr)
+    elif sys.argv[1] == '--psnr':
+        psnr = peak_signal_to_noise_ratio(arr, arr2)
+        print("Peak Signal to Noise Ratio:", psnr)
+    elif sys.argv[1] == '--maxdiff':
+        max_diff = maximum_difference(arr, arr2)
+        print("Maximum Difference:", max_diff)
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
