@@ -78,9 +78,61 @@ def doArithmeticMeanFilter(arr, filter_size):
         for j in range(arr.shape[1]):
             if arr.ndim == 2:  # grayscale
                 new_arr[i, j] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size])
-            else:  # color image
+            else:  # color
                 for c in range(arr.shape[2]):
                     new_arr[i, j, c] = np.mean(padded_arr[i:i + filter_size, j:j + filter_size, c])
+
+    return new_arr
+
+def doAdaptiveMedianFilter(arr, max_filter_size):
+    print("Applying Adaptive Median Filter with max size:", max_filter_size)
+    max_filter_size = int(max_filter_size)
+    pad_size = max_filter_size // 2
+    if arr.ndim == 2:  # grayscale
+        padded_arr = np.pad(arr, pad_size, mode='constant', constant_values=0)
+    else:  # color
+        padded_arr = np.pad(arr, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='constant',
+                            constant_values=0)
+
+    new_arr = np.zeros_like(arr)
+
+    def adaptive_median(window, Smax):
+        window_flat = window.flatten()
+        zmin = np.min(window_flat)
+        zmax = np.max(window_flat)
+        zmed = np.median(window_flat)
+        zxy = window[len(window) // 2, len(window) // 2]
+
+        # Stage A
+        A1 = zmed - zmin
+        A2 = zmed - zmax
+
+        if A1 > 0 and A2 < 0:
+            # Stage B
+            B1 = zxy - zmin
+            B2 = zxy - zmax
+            if np.all(B1 > 0) and np.all(B2 < 0):
+                return zxy
+            else:
+                return zmed
+        else:
+            return None
+
+    for i in range(arr.shape[0]):
+        for j in range(arr.shape[1]):
+            window_size = 3
+            result = None
+            while window_size <= max_filter_size:
+                half_size = window_size // 2
+                window = padded_arr[i:i + window_size, j:j + window_size]
+                result = adaptive_median(window, max_filter_size)
+                if result is not None:
+                    break
+                window_size += 2
+
+            if result is None:
+                result = arr[i, j]
+            new_arr[i, j] = result
 
     return new_arr
 
@@ -225,7 +277,9 @@ else:
     elif command == '--shrink':
         arr = doShrink(arr, param)
     elif command == '--arithmeticMeanFilter':
-        arr = doArithmeticMeanFilter(arr, param)  # param is the filter size (e.g., 3, 5, etc.)
+        arr = doArithmeticMeanFilter(arr, param)
+    elif command == '--adaptiveMedianFilter':
+        arr = doAdaptiveMedianFilter(arr, param)
     else:
         print("Unknown command: " + command)
         sys.exit()
