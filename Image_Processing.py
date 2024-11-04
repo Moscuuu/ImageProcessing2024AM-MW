@@ -40,19 +40,33 @@ def doDiagonalFlip(arr):
     arr = arr[::-1, ::-1]
     return arr
 
+
 def doEnlarge(arr, factor):
-    print("Function doEnlarge invoked with factor: " + factor)
     factor = float(factor)
+    print("Function doEnlarge invoked with factor:", factor)
+
     height = len(arr)
     width = len(arr[0])
+    if arr.ndim == 3:
+        num_channels = arr.shape[2]
+    else:
+        num_channels = 1
+
     new_height = int(height * factor)
     new_width = int(width * factor)
 
-    new_arr = [[0] * new_width for _ in range(new_height)]
+    if num_channels == 1:
+        new_arr = np.zeros((new_height, new_width), dtype=arr.dtype)
+    else:
+        new_arr = np.zeros((new_height, new_width, num_channels), dtype=arr.dtype)
 
     for i in range(new_height):
         for j in range(new_width):
-            new_arr[i][j] = arr[int(i / factor)][int(j / factor)]
+            if num_channels == 1:
+                new_arr[i, j] = arr[int(i / factor), int(j / factor)]
+            else:
+                for c in range(num_channels):
+                    new_arr[i, j, c] = arr[int(i / factor), int(j / factor), c]
 
     return new_arr
 
@@ -96,7 +110,7 @@ def doAdaptiveMedianFilter(arr, max_filter_size):
 
     new_arr = np.zeros_like(arr)
 
-    def adaptive_median(window, Smax):
+    def adaptive_median(window):
         window_flat = window.flatten()
         zmin = np.min(window_flat)
         zmax = np.max(window_flat)
@@ -221,7 +235,7 @@ def maximum_difference(arr1, arr2):
 ###########################
 #im = Image.open("lena.bmp")
 im = Image.open("lenac.bmp")
-im2 = Image.open("result.bmp")
+im2 = Image.open("lenac_normal1.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
