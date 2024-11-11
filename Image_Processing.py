@@ -137,9 +137,8 @@ def doAdaptiveMedianFilter(arr, max_filter_size):
             window_size = 3
             result = None
             while window_size <= max_filter_size:
-                half_size = window_size // 2
                 window = padded_arr[i:i + window_size, j:j + window_size]
-                result = adaptive_median(window, max_filter_size)
+                result = adaptive_median(window)
                 if result is not None:
                     break
                 window_size += 2
