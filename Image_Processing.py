@@ -40,7 +40,6 @@ def doDiagonalFlip(arr):
     arr = arr[::-1, ::-1]
     return arr
 
-
 def doEnlarge(arr, factor):
     factor = float(factor)
     print("Function doEnlarge invoked with factor:", factor)
@@ -186,36 +185,47 @@ def signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
         raise ValueError("Input arrays must have the same dimensions.")
 
-    # Calculate the mean signal value
-    mean_signal = np.mean(original)
+    epsilon = 1e-10  # Small value to avoid division by zero
 
-    # Calculate the noise
-    noise = original - noisy
+    if original.ndim == 3 and original.shape[2] == 3:  # RGB image
+        snr = []
+        for channel in range(3):
+            mean_signal = np.mean(original[:, :, channel])
+            noise = original[:, :, channel] - noisy[:, :, channel]
+            mean_noise = np.mean(noise)
+            snr_channel = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2 + epsilon))
+            snr.append(snr_channel)
+        return snr
+    else:  # Grayscale image
+        mean_signal = np.mean(original)
+        noise = original - noisy
+        mean_noise = np.mean(noise)
+        snr = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2 + epsilon))
+        return snr
 
-    # Calculate the mean noise value
-    mean_noise = np.mean(noise)
-
-    # Compute SNR
-    snr = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2))
-
-    return snr
 
 def peak_signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
         raise ValueError("Input arrays must have the same dimensions.")
 
-    # Calculate MSE
-    mse = np.mean((original - noisy) ** 2)
-    if mse == 0:
-        return float('inf')
-
-    # Maximum possible pixel value
     max_pixel_value = 255.0
 
-    # Compute PSNR
-    psnr = 10 * np.log10((max_pixel_value ** 2) / mse)
-
-    return psnr
+    if original.ndim == 3 and original.shape[2] == 3:  # RGB image
+        psnr = []
+        for channel in range(3):
+            mse = np.mean((original[:, :, channel] - noisy[:, :, channel]) ** 2)
+            if mse == 0:
+                psnr_channel = float('inf')
+            else:
+                psnr_channel = 10 * np.log10((max_pixel_value ** 2) / mse)
+            psnr.append(psnr_channel)
+        return psnr
+    else:  # Grayscale image
+        mse = np.mean((original - noisy) ** 2)
+        if mse == 0:
+            return float('inf')
+        psnr = 10 * np.log10((max_pixel_value ** 2) / mse)
+        return psnr
 
 def maximum_difference(arr1, arr2):
     if arr1.shape != arr2.shape:
@@ -234,7 +244,7 @@ def maximum_difference(arr1, arr2):
 ###########################
 #im = Image.open("lena.bmp")
 im = Image.open("lenac.bmp")
-im2 = Image.open("lenac_normal1.bmp")
+im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
