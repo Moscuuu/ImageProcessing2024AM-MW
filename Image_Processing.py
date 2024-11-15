@@ -97,56 +97,59 @@ def doArithmeticMeanFilter(arr, filter_size):
 
     return new_arr
 
+
 def doAdaptiveMedianFilter(arr, max_filter_size):
-    print("Applying Adaptive Median Filter with max size:", max_filter_size)
+    print("Applying Enhanced Adaptive Median Filter with max size:", max_filter_size)
     max_filter_size = int(max_filter_size)
     pad_size = max_filter_size // 2
-    if arr.ndim == 2:  # grayscale
-        padded_arr = np.pad(arr, pad_size, mode='constant', constant_values=0)
-    else:  # color
-        padded_arr = np.pad(arr, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='constant',
-                            constant_values=0)
+
+    # Efficient padding
+    if arr.ndim == 2:  # Grayscale
+        padded_arr = np.pad(arr, pad_size, mode='reflect')
+        channels = 1
+    else:  # Color
+        padded_arr = np.pad(arr, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='reflect')
+        channels = arr.shape[2]
 
     new_arr = np.zeros_like(arr)
+    height, width = arr.shape[:2]
+
+    # Precompute window ranges for efficiency
+    windows = [np.arange(-(size // 2), (size // 2) + 1) for size in range(3, max_filter_size + 1, 2)]
 
     def adaptive_median(window):
         window_flat = window.flatten()
         zmin = np.min(window_flat)
         zmax = np.max(window_flat)
         zmed = np.median(window_flat)
-        zxy = window[len(window) // 2, len(window) // 2]
+        zxy = window[window.shape[0] // 2, window.shape[1] // 2]
 
-        # Stage A
-        A1 = zmed - zmin
-        A2 = zmed - zmax
+        # Ensure scalar comparisons
+        if zmin < zmed < zmax:
+            return zxy if zmin < zxy < zmax else zmed
+        return None
 
-        if A1 > 0 and A2 < 0:
-            # Stage B
-            B1 = zxy - zmin
-            B2 = zxy - zmax
-            if np.all(B1 > 0) and np.all(B2 < 0):
-                return zxy
-            else:
-                return zmed
-        else:
-            return None
+    for c in range(channels):
+        for i in range(height):
+            for j in range(width):
+                result = None
+                for window_offsets in windows:
+                    x, y = i + pad_size, j + pad_size
+                    if channels == 1:  # Grayscale
+                        window = padded_arr[x + window_offsets[:, None], y + window_offsets]
+                    else:  # Color
+                        window = padded_arr[x + window_offsets[:, None], y + window_offsets, c]
 
-    for i in range(arr.shape[0]):
-        for j in range(arr.shape[1]):
-            window_size = 3
-            result = None
-            while window_size <= max_filter_size:
-                window = padded_arr[i:i + window_size, j:j + window_size]
-                result = adaptive_median(window)
-                if result is not None:
-                    break
-                window_size += 2
-
-            if result is None:
-                result = arr[i, j]
-            new_arr[i, j] = result
+                    result = adaptive_median(window)
+                    if result is not None:
+                        break
+                if channels == 1:
+                    new_arr[i, j] = result if result is not None else arr[i, j]
+                else:
+                    new_arr[i, j, c] = result if result is not None else arr[i, j, c]
 
     return new_arr
+
 
 def mean_square_error(arr1, arr2):
     if arr1.shape != arr2.shape:
@@ -307,5 +310,5 @@ else:
         print("Unknown command: " + command)
         sys.exit()
 
-newIm = Image.fromarray(arr.astype(np.uint8))
-newIm.save("result.bmp")
+#newIm = Image.fromarray(arr.astype(np.uint8))
+#newIm.save("result.bmp")
