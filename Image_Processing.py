@@ -155,34 +155,35 @@ def mean_square_error(arr1, arr2):
     if arr1.shape != arr2.shape:
         raise ValueError("Input arrays must have the same dimensions.")
 
-    error = 0.0
-    height, width, *channels = arr1.shape
-    num_elements = height * width * (channels[0] if channels else 1)
-
-    for i in range(height):
-        for j in range(width):
-            if channels:
-                for c in range(channels[0]):
-                    error += (arr1[i][j][c] - arr2[i][j][c]) ** 2
-            else:
-                error += (arr1[i][j] - arr2[i][j]) ** 2
-
-    mse = error / num_elements
-    return mse
-
+    if arr1.ndim == 3 and arr1.shape[2] == 3:  # Obraz RGB
+        mse_channels = []
+        for c in range(3):  # Obliczanie dla każdego kanału
+            mse_channel = np.mean((arr1[:, :, c] - arr2[:, :, c]) ** 2)
+            mse_channels.append(mse_channel)
+        overall_mse = np.mean(mse_channels)  # Uśredniona wartość
+        return mse_channels, overall_mse
+    else:  # Obraz w odcieniach szarości
+        mse = np.mean((arr1 - arr2) ** 2)
+        return mse
 
 def peak_mean_square_error(arr1, arr2):
     if arr1.shape != arr2.shape:
         raise ValueError("Input arrays must have the same dimensions.")
 
-    # Calculate MSE
-    mse = np.mean((arr1 - arr2) ** 2)
-
-    # Normalize by the square of the maximum possible pixel value
     max_pixel_value = 255.0
-    pmse = mse / (max_pixel_value ** 2)
 
-    return pmse
+    if arr1.ndim == 3 and arr1.shape[2] == 3:  # Obraz RGB
+        pmse_channels = []
+        for c in range(3):  # Obliczanie dla każdego kanału
+            mse_channel = np.mean((arr1[:, :, c] - arr2[:, :, c]) ** 2)
+            pmse_channel = mse_channel / (max_pixel_value ** 2)
+            pmse_channels.append(pmse_channel)
+        overall_pmse = np.mean(pmse_channels)  # Uśredniona wartość
+        return pmse_channels, overall_pmse
+    else:  # Obraz w odcieniach szarości
+        mse = np.mean((arr1 - arr2) ** 2)
+        pmse = mse / (max_pixel_value ** 2)
+        return pmse
 
 def signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
