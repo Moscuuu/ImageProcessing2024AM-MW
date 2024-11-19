@@ -192,20 +192,23 @@ def signal_to_noise_ratio(original, noisy):
 
     if original.ndim == 3 and original.shape[2] == 3:  # RGB image
         snr = []
-        for channel in range(3):
+        for channel in range(3):  # Per-channel computation
             mean_signal = np.mean(original[:, :, channel])
-            noise = original[:, :, channel] - noisy[:, :, channel]
-            mean_noise = np.mean(noise)
-            snr_channel = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2 + epsilon))
-            snr.append(snr_channel)
+            noise_power = np.mean((original[:, :, channel] - noisy[:, :, channel]) ** 2)
+            if noise_power < epsilon:
+                snr.append(float('inf'))  # Perfect reconstruction case
+            else:
+                snr_channel = 10 * np.log10((mean_signal ** 2) / (noise_power + epsilon))
+                snr.append(snr_channel)
         return snr
     else:  # Grayscale image
         mean_signal = np.mean(original)
-        noise = original - noisy
-        mean_noise = np.mean(noise)
-        snr = 10 * np.log10((mean_signal ** 2) / (mean_noise ** 2 + epsilon))
-        return snr
-
+        noise_power = np.mean((original - noisy) ** 2)
+        if noise_power < epsilon:
+            return float('inf')  # Perfect reconstruction case
+        else:
+            snr = 10 * np.log10((mean_signal ** 2) / (noise_power + epsilon))
+            return snr
 
 def peak_signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
