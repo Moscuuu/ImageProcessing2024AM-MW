@@ -241,16 +241,21 @@ def maximum_difference(arr1, arr2):
     # Calculate the absolute differences
     differences = np.abs(arr1 - arr2)
 
-    # Find the maximum difference
-    max_diff = np.max(differences)
-
-    return max_diff
+    # If the image is multi-channel (e.g., RGB)
+    if arr1.ndim == 3 and arr1.shape[2] == 3:  # 3 channels (R, G, B)
+        max_diffs = []
+        for channel in range(arr1.shape[2]):
+            max_diffs.append(np.max(differences[:, :, channel]))
+        return max_diffs  # Return a list of maximum differences per channel
+    else:  # Grayscale image
+        max_diff = np.max(differences)
+        return max_diff  # Return a single value for grayscale images
 
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("lenac.bmp")
+im = Image.open("lenac_impulse3.bmp")
 im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
@@ -314,5 +319,5 @@ else:
         print("Unknown command: " + command)
         sys.exit()
 
-#newIm = Image.fromarray(arr.astype(np.uint8))
-#newIm.save("result.bmp")
+newIm = Image.fromarray(arr.astype(np.uint8))
+newIm.save("result.bmp")
