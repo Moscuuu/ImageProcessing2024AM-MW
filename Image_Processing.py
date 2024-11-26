@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import cv2
 
 
 ######################
@@ -345,13 +346,42 @@ def enhance_image_based_on_histogram(image, g_min, g_max):
 
     return enhanced_image
 
+def enhance_image_rgb(image, g_min, g_max):
+    """
+    Enhance the brightness of an RGB image using histogram-based transformation.
+    The operation is performed on the Lightness channel in HSL color space.
+
+    :param image: Input RGB image as a 3D numpy array.
+    :param g_min: Minimum brightness for the output image.
+    :param g_max: Maximum brightness for the output image.
+    :return: Enhanced RGB image as a 3D numpy array.
+    """
+    # Upewnij się, że obraz jest w formacie uint8
+    if image.dtype != np.uint8:
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+    # Convert RGB image to HSL
+    hsl_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    L = hsl_image[:, :, 1]  # Extract Lightness channel
+
+    # Apply grayscale enhancement function to the Lightness channel
+    enhanced_L = enhance_image_based_on_histogram(L, g_min, g_max)
+
+    # Replace the Lightness channel in the HSL image
+    hsl_image[:, :, 1] = enhanced_L
+
+    # Convert the image back to RGB
+    enhanced_image = cv2.cvtColor(hsl_image, cv2.COLOR_HLS2RGB)
+
+    return enhanced_image
+
 
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("lena.bmp")
-im2 = Image.open("lena.bmp")
+im = Image.open("result.bmp")
+im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
@@ -416,6 +446,10 @@ elif len(sys.argv) == 4:  # Adding parameters for histogram power transformation
         else:
             print("Error: --hpower only works on grayscale images.")
             sys.exit()
+
+    elif command == '--hpowerrgb':
+        if numColorChannels == 3:
+            arr = enhance_image_rgb(arr, g_min, g_max)
     else:
         print("Unknown command or incorrect parameters.")
         sys.exit()
