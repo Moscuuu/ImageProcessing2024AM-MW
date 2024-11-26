@@ -2,6 +2,8 @@
 from PIL import Image
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
+import cv2
 
 
 ######################
@@ -251,11 +253,134 @@ def maximum_difference(arr1, arr2):
         max_diff = np.max(differences)
         return max_diff  # Return a single value for grayscale images
 
+
+###########################
+
+# TASK 2 PART
+
+###########################
+
+def create_histogram(image, output_filename, channel=None):
+
+    if image.ndim == 2:  # Grayscale image
+        histogram, bins = np.histogram(image.flatten(), bins=256, range=[0, 256])
+        plt.figure()
+        plt.plot(histogram, color='black')
+        plt.title("Grayscale Histogram")
+        plt.xlabel("Pixel Intensity")
+        plt.ylabel("Frequency")
+        plt.savefig(output_filename)
+        plt.close()
+        return {"grayscale": histogram.tolist()}
+
+    elif image.ndim == 3 and image.shape[2] == 3:  # RGB image
+        histograms = {}
+        plt.figure()
+
+        # Check if a specific channel is requested
+        if channel:
+            channel_map = {'R': 0, 'G': 1, 'B': 2}
+            if channel.upper() in channel_map:
+                idx = channel_map[channel.upper()]
+                histogram, bins = np.histogram(image[:, :, idx].flatten(), bins=256, range=[0, 256])
+                plt.plot(histogram, color=channel.lower())
+                plt.title(f"{channel.upper()} Channel Histogram")
+                plt.xlabel("Pixel Intensity")
+                plt.ylabel("Frequency")
+                histograms[channel.upper()] = histogram.tolist()
+            else:
+                raise ValueError("Invalid channel specified. Use 'R', 'G', or 'B'.")
+        else:  # Generate histograms for all channels
+            colors = ['r', 'g', 'b']
+            for i, color in enumerate(colors):
+                histogram, bins = np.histogram(image[:, :, i].flatten(), bins=256, range=[0, 256])
+                plt.plot(histogram, color=color, label=f"{color.upper()} Channel")
+                histograms[color.upper()] = histogram.tolist()
+            plt.title("RGB Histogram")
+            plt.xlabel("Pixel Intensity")
+            plt.ylabel("Frequency")
+            plt.legend()
+
+        plt.savefig(output_filename)
+        plt.close()
+        return histograms
+
+    else:
+        raise ValueError("Unsupported image format.")
+
+def enhance_image_based_on_histogram(image, g_min, g_max):
+    """
+    Enhance the image brightness based on the provided histogram equation.
+
+    :param image: Input grayscale image as a 2D numpy array.
+    :param g_min: Minimum brightness for the output image.
+    :param g_max: Maximum brightness for the output image.
+    :return: Enhanced image as a 2D numpy array.
+    """
+    # Ensure the image is grayscale
+    if image.ndim != 2:
+        raise ValueError("This method works only for grayscale images.")
+
+    # Calculate histogram and cumulative histogram
+    L = 256  # Number of grayscale levels
+    hist, bins = np.histogram(image.flatten(), bins=L, range=[0, L])
+    cumulative_hist = np.cumsum(hist)
+    N = image.size  # Total number of pixels
+
+    # Calculate g(f) transformation function
+    g_min_cubed = g_min ** (1/3)
+    g_max_cubed = g_max ** (1/3)
+    g_f = np.zeros(L)  # Array to store g(f) for each intensity value f
+
+    for f in range(L):
+        cumulative_sum = cumulative_hist[f] / N
+        g_f[f] = (g_min_cubed + (g_max_cubed - g_min_cubed) * cumulative_sum) ** 3
+
+        # Apply the transformation to the image
+    enhanced_image = np.zeros_like(image, dtype=np.float32)
+    for f in range(L):
+        enhanced_image[image == f] = g_f[f]
+
+    # Normalize the enhanced image to 0-255 range for saving
+    enhanced_image = np.clip(enhanced_image, 0, 255).astype(np.uint8)
+
+    return enhanced_image
+
+def enhance_image_rgb(image, g_min, g_max):
+    """
+    Enhance the brightness of an RGB image using histogram-based transformation.
+    The operation is performed on the Lightness channel in HSL color space.
+
+    :param image: Input RGB image as a 3D numpy array.
+    :param g_min: Minimum brightness for the output image.
+    :param g_max: Maximum brightness for the output image.
+    :return: Enhanced RGB image as a 3D numpy array.
+    """
+    # Upewnij się, że obraz jest w formacie uint8
+    if image.dtype != np.uint8:
+        image = np.clip(image, 0, 255).astype(np.uint8)
+
+    # Convert RGB image to HSL
+    hsl_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    L = hsl_image[:, :, 1]  # Extract Lightness channel
+
+    # Apply grayscale enhancement function to the Lightness channel
+    enhanced_L = enhance_image_based_on_histogram(L, g_min, g_max)
+
+    # Replace the Lightness channel in the HSL image
+    hsl_image[:, :, 1] = enhanced_L
+
+    # Convert the image back to RGB
+    enhanced_image = cv2.cvtColor(hsl_image, cv2.COLOR_HLS2RGB)
+
+    return enhanced_image
+
+
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("lenac_impulse3.bmp")
+im = Image.open("result.bmp")
 im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
@@ -297,9 +422,38 @@ if len(sys.argv) == 2:
     elif sys.argv[1] == '--maxdiff':
         max_diff = maximum_difference(arr, arr2)
         print("Maximum Difference:", max_diff)
+    elif sys.argv[1] == '--histogram':
+        output_filename = "histogram.png"
+        if numColorChannels == 1:
+            hist_data = create_histogram(arr, output_filename)
+            print("Grayscale Histogram saved to:", output_filename)
+            print("Histogram data:", hist_data)
+        else:
+            hist_data = create_histogram(arr, output_filename)
+            print("RGB Histogram saved to:", output_filename)
+            print("Histogram data:", hist_data)
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
+elif len(sys.argv) == 4:  # Adding parameters for histogram power transformation
+    command = sys.argv[1]
+    g_min = float(sys.argv[2])
+    g_max = float(sys.argv[3])
+
+    if command == '--hpower':
+        if numColorChannels == 1:  # Grayscale image
+            arr = enhance_image_based_on_histogram(arr, g_min, g_max)
+        else:
+            print("Error: --hpower only works on grayscale images.")
+            sys.exit()
+
+    elif command == '--hpowerrgb':
+        if numColorChannels == 3:
+            arr = enhance_image_rgb(arr, g_min, g_max)
+    else:
+        print("Unknown command or incorrect parameters.")
+        sys.exit()
+
 else:
     command = sys.argv[1]
     param = sys.argv[2]
@@ -315,6 +469,11 @@ else:
         arr = doArithmeticMeanFilter(arr, param)
     elif command == '--adaptiveMedianFilter':
         arr = doAdaptiveMedianFilter(arr, param)
+    elif command == '--histogram' and numColorChannels > 1:
+        output_filename = "channel_histogram.png"
+        hist_data = create_histogram(arr, output_filename, param)
+        print(f"{param.upper()} Channel Histogram saved to:", output_filename)
+        print(f"{param.upper()} Histogram data:", hist_data)
     else:
         print("Unknown command: " + command)
         sys.exit()
