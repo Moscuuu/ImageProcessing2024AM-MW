@@ -4,6 +4,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import cv2
+from scipy.signal import convolve2d
 
 
 ######################
@@ -375,16 +376,209 @@ def enhance_image_rgb(image, g_min, g_max):
 
     return enhanced_image
 
+def compute_mean(arr):
+    """
+    Compute the mean for each channel in an image array.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Mean for each channel.
+    """
+    if arr.ndim == 3:  # RGB image
+        return [np.mean(arr[:, :, c]) for c in range(arr.shape[2])]
+    else:  # Grayscale image
+        return [np.mean(arr)]
+
+
+def compute_variance(arr):
+    """
+    Compute the variance for each channel in an image array.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Variance for each channel.
+    """
+    if arr.ndim == 3:  # RGB image
+        return [np.var(arr[:, :, c]) for c in range(arr.shape[2])]
+    else:  # Grayscale image
+        return [np.var(arr)]
+
+
+def compute_std_dev(arr):
+    """
+    Compute the standard deviation for each channel in an image array.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Standard deviation for each channel.
+    """
+    if arr.ndim == 3:  # RGB image
+        return [np.std(arr[:, :, c]) for c in range(arr.shape[2])]
+    else:  # Grayscale image
+        return [np.std(arr)]
+
+
+def compute_var_coefficient_i(arr):
+    """
+    Compute the variation coefficient I for each channel.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Variation coefficient I for each channel.
+    """
+    means = compute_mean(arr)
+    std_devs = compute_std_dev(arr)
+    return [std_dev / mean if mean != 0 else 0 for std_dev, mean in zip(std_devs, means)]
+
+
+def compute_asymmetry_coefficient(arr):
+    """
+    Compute the asymmetry coefficient for each channel.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Asymmetry coefficient for each channel.
+    """
+    means = compute_mean(arr)
+    std_devs = compute_std_dev(arr)
+    if arr.ndim == 3:
+        return [
+            np.mean((arr[:, :, c] - mean) ** 3) / (std_dev ** 3) if std_dev != 0 else 0
+            for c, (mean, std_dev) in enumerate(zip(means, std_devs))
+        ]
+    else:
+        return [
+            np.mean((arr - means[0]) ** 3) / (std_devs[0] ** 3) if std_devs[0] != 0 else 0
+        ]
+
+
+def compute_flattening_coefficient(arr):
+    """
+    Compute the flattening coefficient for each channel.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Flattening coefficient for each channel.
+    """
+    means = compute_mean(arr)
+    std_devs = compute_std_dev(arr)
+    if arr.ndim == 3:
+        return [
+            np.mean((arr[:, :, c] - mean) ** 4) / (std_dev ** 4) - 3 if std_dev != 0 else 0
+            for c, (mean, std_dev) in enumerate(zip(means, std_devs))
+        ]
+    else:
+        return [
+            np.mean((arr - means[0]) ** 4) / (std_devs[0] ** 4) - 3 if std_devs[0] != 0 else 0
+        ]
+
+
+def compute_var_coefficient_ii(arr):
+    """
+    Compute the variation coefficient II for each channel.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Variation coefficient II for each channel.
+    """
+    means = compute_mean(arr)
+    variances = compute_variance(arr)
+    return [var / (mean ** 2) if mean != 0 else 0 for var, mean in zip(variances, means)]
+
+
+def compute_entropy(arr):
+    """
+    Compute the information source entropy for each channel.
+
+    Parameters:
+        arr (numpy.ndarray): Image array.
+
+    Returns:
+        list: Entropy for each channel.
+    """
+    if arr.ndim == 3:  # RGB image
+        entropies = []
+        for c in range(arr.shape[2]):
+            values, counts = np.unique(arr[:, :, c], return_counts=True)
+            probabilities = counts / np.sum(counts)
+            entropies.append(-np.sum(probabilities * np.log2(probabilities)))
+        return entropies
+    else:  # Grayscale image
+        values, counts = np.unique(arr, return_counts=True)
+        probabilities = counts / np.sum(counts)
+        return [-np.sum(probabilities * np.log2(probabilities))]
+
+def apply_filter_universal(image_array, mask):
+    """
+    Apply a universal convolution filter to an image.
+
+    Parameters:
+        image_array (numpy.ndarray): Image array (grayscale or RGB).
+        mask (numpy.ndarray): Convolution mask.
+
+    Returns:
+        numpy.ndarray: Filtered image array.
+    """
+    if image_array.ndim == 3:  # RGB Image
+        filtered_image = np.zeros_like(image_array)
+        for c in range(3):  # Apply the mask to each channel separately
+            filtered_image[:, :, c] = convolve2d(image_array[:, :, c], mask, mode='same', boundary='symm')
+        return np.clip(filtered_image, 0, 255).astype(np.uint8)
+    else:  # Grayscale Image
+        filtered_image = convolve2d(image_array, mask, mode='same', boundary='symm')
+        return np.clip(filtered_image, 0, 255).astype(np.uint8)
+
+def optimized_filter(image_array):
+    """
+    Optimized filter for a specific mask (hₛ).
+
+    Parameters:
+        image_array (numpy.ndarray): Input image (grayscale or RGB).
+
+    Returns:
+        numpy.ndarray: Filtered image.
+    """
+    # Predefined mask (hₛ)
+    mask = np.array([[-1, -1, -1], [1, -2, 1], [1, 1, 1]])
+
+    if image_array.ndim == 3:  # RGB Image
+        # Process channel-by-channel without creating full intermediate arrays
+        filtered_channels = []
+        for c in range(3):  # Iterate over R, G, B
+            channel = image_array[:, :, c]
+            filtered_channel = convolve2d(channel, mask, mode='same', boundary='symm')
+            filtered_channels.append(np.clip(filtered_channel, 0, 255).astype(np.uint8))
+        return np.stack(filtered_channels, axis=-1)  # Combine channels
+    else:  # Grayscale Image
+        # Directly process grayscale
+        filtered_image = convolve2d(image_array, mask, mode='same', boundary='symm')
+        return np.clip(filtered_image, 0, 255).astype(np.uint8)
 
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("result.bmp")
-im2 = Image.open("result.bmp")
+im = Image.open("lena.bmp")
+im2 = Image.open("lena.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
+
+mask = np.array([[1, 1, -1], [1, -2, -1], [1, 1, -1]]) # mask for "W" filter
 
 if arr.ndim == 1: #grayscale
     numColorChannels = 1
@@ -432,6 +626,36 @@ if len(sys.argv) == 2:
             hist_data = create_histogram(arr, output_filename)
             print("RGB Histogram saved to:", output_filename)
             print("Histogram data:", hist_data)
+    elif sys.argv[1] == '--cmean':
+        mean = compute_mean(arr)
+        print("Mean:", mean)
+    elif sys.argv[1] == '--cvariance':
+        variance = compute_variance(arr)
+        print("Variance:", variance)
+    elif sys.argv[1] == '--cstdev':
+        std_dev = compute_std_dev(arr)
+        print("Standard Deviation:", std_dev)
+    elif sys.argv[1] == '--cvarcoi':
+        var_coeff_i = compute_var_coefficient_i(arr)
+        print("Variation Coefficient I:", var_coeff_i)
+    elif sys.argv[1] == '--casyco':
+        asymmetry_coeff = compute_asymmetry_coefficient(arr)
+        print("Asymmetry Coefficient:", asymmetry_coeff)
+    elif sys.argv[1] == '--cflatco':
+        flattening_coeff = compute_flattening_coefficient(arr)
+        print("Flattening Coefficient:", flattening_coeff)
+    elif sys.argv[1] == '--cvarcoii':
+        var_coeff_ii = compute_var_coefficient_ii(arr)
+        print("Variation Coefficient II:", var_coeff_ii)
+    elif sys.argv[1] == '--centropy':
+        entropy = compute_entropy(arr)
+        print("Entropy:", entropy)
+    elif sys.argv[1] == '--sexdetii':
+        arr = apply_filter_universal(arr, mask)
+        print("Universal Filter applied.")
+    elif sys.argv[1] == '--sexdet':
+        arr = optimized_filter(arr)
+        print("Optimized Filter applied.")
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
