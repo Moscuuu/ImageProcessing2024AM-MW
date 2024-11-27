@@ -568,12 +568,65 @@ def optimized_filter(image_array):
         filtered_image = convolve2d(image_array, mask, mode='same', boundary='symm')
         return np.clip(filtered_image, 0, 255).astype(np.uint8)
 
+
+def rosenfeld_operator_optimized(image_array, P):
+    """
+    Optimized Rosenfeld operator using cumulative sums.
+
+    Parameters:
+        image_array (numpy.ndarray): Input image (grayscale or RGB).
+        P (int): Neighborhood size parameter (e.g., 1, 2, 4, 8, etc.).
+
+    Returns:
+        numpy.ndarray: Filtered image.
+    """
+    if P <= 0:
+        raise ValueError("P must be a positive integer.")
+
+    if image_array.ndim == 3:  # RGB Image
+        # Process each channel independently
+        filtered_image = np.zeros_like(image_array, dtype=np.float32)
+        for c in range(3):
+            filtered_image[:, :, c] = rosenfeld_single_channel_optimized(image_array[:, :, c], P)
+        return np.clip(filtered_image, 0, 255).astype(np.uint8)
+    else:  # Grayscale Image
+        return rosenfeld_single_channel_optimized(image_array, P)
+
+
+def rosenfeld_single_channel_optimized(channel, P):
+    """
+    Optimized Rosenfeld operator for a single channel using cumulative sums.
+
+    Parameters:
+        channel (numpy.ndarray): Single-channel input image.
+        P (int): Neighborhood size parameter.
+
+    Returns:
+        numpy.ndarray: Filtered channel.
+    """
+    height, width = channel.shape
+
+    # Pad the image to handle edges (P rows on both top and bottom)
+    padded_channel = np.pad(channel, ((P, P), (0, 0)), mode='edge')
+
+    # Compute cumulative sum along the vertical axis
+    cumsum = np.cumsum(padded_channel, axis=0)
+
+    # Compute forward and backward sums using cumulative sums
+    forward_sum = cumsum[P:height + P, :] - cumsum[:height, :]
+    backward_sum = cumsum[2 * P:height + 2 * P, :] - cumsum[P:height + P, :]
+
+    # Compute the Rosenfeld output
+    filtered_channel = (1 / P) * (forward_sum - backward_sum)
+
+    return filtered_channel
+
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("lena.bmp")
-im2 = Image.open("lena.bmp")
+im = Image.open("lenac.bmp")
+im2 = Image.open("lenac.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
@@ -698,6 +751,9 @@ else:
         hist_data = create_histogram(arr, output_filename, param)
         print(f"{param.upper()} Channel Histogram saved to:", output_filename)
         print(f"{param.upper()} Histogram data:", hist_data)
+    elif command == '--orosenfeld':
+        arr = rosenfeld_operator_optimized(arr, int(param))
+        print("Rosenfeld Operator applied.")
     else:
         print("Unknown command: " + command)
         sys.exit()
