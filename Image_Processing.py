@@ -1,4 +1,3 @@
-
 from PIL import Image
 import numpy as np
 import sys
@@ -18,6 +17,7 @@ def doBrightness(arr, param):
     arr[arr < 0] = 0
     return arr
 
+
 def doContrast(arr, param):
     print("Function doContrast invoked with param: " + param)
     arr = ((arr - 128) * float(param) + 128).astype(np.int64)
@@ -25,23 +25,28 @@ def doContrast(arr, param):
     arr[arr < 0] = 0
     return arr
 
+
 def doNegation(arr):
     arr = 255 - arr
     arr[arr > 255] = 255
     arr[arr < 0] = 0
     return arr
 
+
 def doVerticalFlip(arr):
     arr = arr[::-1]
     return arr
+
 
 def doHorizontalFlip(arr):
     arr = arr[:, ::-1]
     return arr
 
+
 def doDiagonalFlip(arr):
     arr = arr[::-1, ::-1]
     return arr
+
 
 def doEnlarge(arr, factor):
     factor = float(factor)
@@ -72,10 +77,12 @@ def doEnlarge(arr, factor):
 
     return new_arr
 
+
 def doShrink(arr, factor):
     print("Function doShrink invoked with factor: " + factor)
     arr = arr[::int(factor), ::int(factor)]
     return arr
+
 
 def doArithmeticMeanFilter(arr, filter_size):
     print("Applying Arithmetic Mean Filter with size:", filter_size)
@@ -169,6 +176,7 @@ def mean_square_error(arr1, arr2):
         mse = np.mean((arr1 - arr2) ** 2)
         return mse
 
+
 def peak_mean_square_error(arr1, arr2):
     if arr1.shape != arr2.shape:
         raise ValueError("Input arrays must have the same dimensions.")
@@ -187,6 +195,7 @@ def peak_mean_square_error(arr1, arr2):
         mse = np.mean((arr1 - arr2) ** 2)
         pmse = mse / (max_pixel_value ** 2)
         return pmse
+
 
 def signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
@@ -214,6 +223,7 @@ def signal_to_noise_ratio(original, noisy):
             snr = 10 * np.log10((mean_signal ** 2) / (noise_power + epsilon))
             return snr
 
+
 def peak_signal_to_noise_ratio(original, noisy):
     if original.shape != noisy.shape:
         raise ValueError("Input arrays must have the same dimensions.")
@@ -236,6 +246,7 @@ def peak_signal_to_noise_ratio(original, noisy):
             return float('inf')
         psnr = 10 * np.log10((max_pixel_value ** 2) / mse)
         return psnr
+
 
 def maximum_difference(arr1, arr2):
     if arr1.shape != arr2.shape:
@@ -262,7 +273,6 @@ def maximum_difference(arr1, arr2):
 ###########################
 
 def create_histogram(image, output_filename, channel=None):
-
     if image.ndim == 2:
         histogram, bins = np.histogram(image.flatten(), bins=256, range=[0, 256])
         plt.figure()
@@ -277,7 +287,6 @@ def create_histogram(image, output_filename, channel=None):
     elif image.ndim == 3 and image.shape[2] == 3:
         histograms = {}
         plt.figure()
-
 
         if channel:
             channel_map = {'R': 0, 'G': 1, 'B': 2}
@@ -309,8 +318,8 @@ def create_histogram(image, output_filename, channel=None):
     else:
         raise ValueError("Unsupported image format.")
 
-def enhance_image_based_on_histogram(image, g_min, g_max):
 
+def enhance_image_based_on_histogram(image, g_min, g_max):
     if image.ndim != 2:
         raise ValueError("This method works only for grayscale images.")
 
@@ -319,8 +328,8 @@ def enhance_image_based_on_histogram(image, g_min, g_max):
     cumulative_hist = np.cumsum(hist)
     N = image.size
 
-    g_min_cubed = g_min ** (1/3)
-    g_max_cubed = g_max ** (1/3)
+    g_min_cubed = g_min ** (1 / 3)
+    g_max_cubed = g_max ** (1 / 3)
     g_f = np.zeros(L)
 
     for f in range(L):
@@ -335,8 +344,8 @@ def enhance_image_based_on_histogram(image, g_min, g_max):
 
     return enhanced_image
 
-def enhance_image_rgb(image, g_min, g_max):
 
+def enhance_image_rgb(image, g_min, g_max):
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
 
@@ -350,6 +359,7 @@ def enhance_image_rgb(image, g_min, g_max):
     enhanced_image = cv2.cvtColor(hsl_image, cv2.COLOR_HLS2RGB)
 
     return enhanced_image
+
 
 def compute_mean(arr):
     if arr.ndim == 3:
@@ -425,6 +435,7 @@ def compute_entropy(arr):
         probabilities = counts / np.sum(counts)
         return [-np.sum(probabilities * np.log2(probabilities))]
 
+
 def apply_filter_universal(image_array, mask):
     if image_array.ndim == 3:
         filtered_image = np.zeros_like(image_array)
@@ -435,8 +446,8 @@ def apply_filter_universal(image_array, mask):
         filtered_image = convolve2d(image_array, mask, mode='same', boundary='symm')
         return np.clip(filtered_image, 0, 255).astype(np.uint8)
 
-def optimized_filter(image_array):
 
+def optimized_filter(image_array):
     mask = np.array([[-1, -1, -1], [1, -2, 1], [1, 1, 1]])
 
     if image_array.ndim == 3:
@@ -452,7 +463,6 @@ def optimized_filter(image_array):
 
 
 def rosenfeld_operator_optimized(image_array, P):
-
     if P <= 0:
         raise ValueError("P must be a positive integer.")
 
@@ -479,6 +489,7 @@ def rosenfeld_single_channel_optimized(channel, P):
     filtered_channel = np.abs(filtered_channel)
 
     return filtered_channel
+
 
 ###########################
 # TASK 3
@@ -509,7 +520,6 @@ def dilate(image, structuring_element):
     # Prepare output image
     output = np.zeros_like(image, dtype=np.uint8)
 
-    # Perform dilation
     for i in range(image_height):
         for j in range(image_width):
             # Extract the region of interest from the padded image
@@ -517,9 +527,237 @@ def dilate(image, structuring_element):
 
             # Apply the structuring element: if any overlap is 1, set the output to 1
             if np.any(region & structuring_element):
+                output[i, j] = 1  # Binary result remains in 0 or 1
+
+    return output
+
+
+def erode(image, structuring_element):
+    """
+    Perform morphological erosion on a binary image.
+
+    Parameters:
+        image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
+        structuring_element (numpy.ndarray): Structuring element (2D array with 0s and 1s).
+
+    Returns:
+        numpy.ndarray: Erosion result as a binary image.
+    """
+    # Get dimensions of image and structuring element
+    image_height, image_width = image.shape
+    se_height, se_width = structuring_element.shape
+
+    # Compute padding size
+    pad_h = se_height // 2
+    pad_w = se_width // 2
+
+    # Pad the image to handle border conditions
+    padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=1)
+
+    # Prepare output image
+    output = np.ones_like(image, dtype=np.uint8)
+
+    # Perform erosion
+    for i in range(image_height):
+        for j in range(image_width):
+            # Extract the region of interest from the padded image
+            region = padded_image[i:i + se_height, j:j + se_width]
+
+            # Apply the structuring element: if all overlap is 1, set the output to 1
+            if np.all(region[structuring_element == 1] == 1):
+                output[i, j] = 1
+            else:
+                output[i, j] = 0
+
+    return output
+
+
+def opening(image, structuring_element):
+    """
+    Perform morphological opening on a binary image.
+
+    Parameters:
+        image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
+        structuring_element (numpy.ndarray): Structuring element (2D array with 0s and 1s).
+
+    Returns:
+        numpy.ndarray: Opening result as a binary image.
+    """
+    # First, apply erosion
+    eroded = erode(image, structuring_element)
+    # Then, apply dilation to the result of erosion
+    opened = dilate(eroded, structuring_element)
+    return opened
+
+
+def closing(image, structuring_element):
+    """
+    Perform morphological closing on a binary image.
+
+    Parameters:
+        image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
+        structuring_element (numpy.ndarray): Structuring element (2D array with 0s and 1s).
+
+    Returns:
+        numpy.ndarray: Closing result as a binary image.
+    """
+    # First, apply dilation
+    dilated = dilate(image, structuring_element)
+    # Then, apply erosion to the result of dilation
+    closed = erode(dilated, structuring_element)
+    return closed
+
+
+def hit_or_miss_single(image, structuring_element):
+    """
+    Perform the Hit-or-Miss Transformation using a single structuring element.
+
+    Parameters:
+        image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
+        structuring_element (numpy.ndarray): Structuring element (2D array with 1s, 0s, and inactive points (-1)).
+
+    Returns:
+        numpy.ndarray: Hit-or-Miss result as a binary image.
+    """
+    # Separate active points in the structuring element
+    se_foreground = (structuring_element == 1).astype(np.uint8)
+    se_background = (structuring_element == 0).astype(np.uint8)
+
+    # Get dimensions
+    image_height, image_width = image.shape
+    se_height, se_width = structuring_element.shape
+    pad_h = se_height // 2
+    pad_w = se_width // 2
+
+    # Pad the image
+    padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
+    padded_complement = np.pad(1 - image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
+
+    # Prepare output image
+    output = np.zeros_like(image, dtype=np.uint8)
+
+    # Perform Hit-or-Miss Transformation
+    for i in range(image_height):
+        for j in range(image_width):
+            region = padded_image[i:i + se_height, j:j + se_width]
+            complement_region = padded_complement[i:i + se_height, j:j + se_width]
+
+            # Check foreground and background matches under active regions
+            foreground_match = np.all(region[se_foreground == 1] == 1)
+            background_match = np.all(complement_region[se_background == 1] == 1)
+
+            if foreground_match and background_match:
                 output[i, j] = 1
 
     return output
+
+
+def get_predefined_structuring_elements():
+    """
+    Define and return a dictionary of 8 predefined structuring elements for HMT.
+
+    Returns:
+        dict: A dictionary with keys as identifiers and values as structuring elements.
+    """
+    return {
+        1: np.array([
+            [0, 0, 0],
+            [-1, 1, -1],
+            [1, 1, 1]
+        ]),
+        2: np.array([
+            [-1, 0, 0],
+            [1, 1, 0],
+            [1, 1, -1]
+        ]),
+        3: np.array([
+            [1, -1, 0],
+            [1, 1, 0],
+            [1, -1, 0]
+        ]),
+        4: np.array([
+            [1, 1, -1],
+            [1, 1, 0],
+            [-1, 0, 0]
+        ]),
+        5: np.array([
+            [1, 1, 1],
+            [-1, 1, -1],
+            [0, 0, 0]
+        ]),
+        6: np.array([
+            [-1, 1, 1],
+            [0, 1, 1],
+            [0, 0, -1]
+        ]),
+        7: np.array([
+            [0, -1, 1],
+            [0, 1, 1],
+            [0, -1, 1]
+        ]),
+        8: np.array([
+            [0, 0, -1],
+            [0, 1, 1],
+            [-1, 1, 1]
+        ]),
+        9: np.array([
+            [1, 1, 1],
+            [1, 1, 1],
+            [1, 1, 1]
+        ]),
+        10: np.array([
+            [0, 1, 0],
+            [1, 1, 1],
+            [0, 1, 0]
+        ]),
+        11: np.array([
+            [1, 1, 0],
+            [1, 0, 0],
+            [0, 0, 0]
+        ]),
+        12: np.array([
+            [0, 1, 1],
+            [0, 1, 0],
+            [0, 0, 0]
+        ]),
+        13: np.array([
+            [0, 0, 0],
+            [1, 1, 0],
+            [1, 0, 0]
+        ]),
+    }
+
+def hit_or_miss_repeated(image, structuring_elements, max_elements=8):
+    """
+    Perform the Hit-or-Miss Transformation iteratively using the first `max_elements` structuring elements
+    until no further changes occur in the image.
+
+    Parameters:
+        image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
+        structuring_elements (dict): Dictionary of structuring elements (key: ID, value: SE array).
+        max_elements (int): Maximum number of structuring elements to apply. Defaults to 8.
+
+    Returns:
+        numpy.ndarray: Final binary image after iterative Hit-or-Miss transformations.
+    """
+    current_image = image.copy()
+
+
+    for idx, (se_id, structuring_element) in enumerate(structuring_elements.items()):
+            if idx >= max_elements:  # Stop after processing max_elements
+                break
+
+            print(f"Applying HMT with structuring element {se_id}:")
+            print(structuring_element)
+
+            # Apply Hit-or-Miss for the current structuring element
+            hmt_result = hit_or_miss_single(current_image, structuring_element)
+
+            # Perform the operation: A ∩ (A ⊗ B)^c
+            current_image &= (1 - hmt_result)
+
+    return current_image
+
 
 ###########################
 # HERE THE MAIN PART STARTS
@@ -533,9 +771,8 @@ arr2 = np.array(im2.getdata())
 
 mask = np.array([[1, 1, -1], [1, -2, -1], [1, 1, -1]])
 
-structuring_element = np.array([[1, 1, 1],
-                                [1, 1, 1],
-                                [1, 1, 1]],dtype=np.uint8)
+
+structuring_elements = get_predefined_structuring_elements()
 
 if arr.ndim == 1:
     numColorChannels = 1
@@ -614,14 +851,9 @@ if len(sys.argv) == 2:
     elif sys.argv[1] == '--sexdet':
         arr = optimized_filter(arr)
         print("Optimized Filter applied.")
-    elif sys.argv[1] == '--dilate':
-        arr = (arr > 0).astype(np.uint8)
-        print("Input binary image:")
-        print(arr)
-        print("Structuring element:")
-        print(structuring_element)
-        arr = dilate(arr, structuring_element)
-        print("Dilation applied.")
+    elif sys.argv[1] == '--hmtm5':
+        arr = hit_or_miss_repeated((arr > 0).astype(np.uint8), structuring_elements, max_elements=8)
+        print("Hit-or-Miss Transformation applied with 5 structuring elements.")
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
@@ -667,9 +899,48 @@ else:
     elif command == '--orosenfeld':
         arr = rosenfeld_operator_optimized(arr, int(param))
         print("Rosenfeld Operator applied.")
+    elif command == '--hmt':
+
+        if param not in structuring_elements:
+            print("Invalid structuring element ID. Choose from:", list(structuring_elements.keys()))
+            sys.exit()
+
+        # Select the structuring element
+        selected_se = structuring_elements[int(param)]
+        print(f"Applying HMT with structuring element {param}:")
+        print(selected_se)
+
+        # Perform Hit-or-Miss Transformation
+        arr = hit_or_miss_single((arr > 0).astype(np.uint8), selected_se)
+    elif sys.argv[1] == '--dilate':
+        arr = (arr > 0).astype(np.uint8)
+        selected_se = structuring_elements[int(param)]
+        arr = dilate(arr, selected_se)
+        print("Dilation applied.")
+    elif sys.argv[1] == '--erode':
+        arr = (arr > 0).astype(np.uint8)
+        selected_se = structuring_elements[int(param)]
+        arr = erode(arr, selected_se)
+        print("Erosion applied.")
+    elif sys.argv[1] == '--opening':
+        arr = (arr > 0).astype(np.uint8)
+        selected_se = structuring_elements[int(param)]
+        arr = opening(arr, selected_se)
+        print("Opening applied.")
+    elif sys.argv[1] == '--closing':
+        arr = (arr > 0).astype(np.uint8)
+        selected_se = structuring_elements[int(param)]
+        arr = closing(arr, selected_se)
+        print("Closing applied.")
     else:
         print("Unknown command: " + command)
         sys.exit()
 
-newIm = Image.fromarray(arr.astype(np.uint8))
-newIm.save("result.bmp")
+if np.array_equal(np.unique(arr), [0, 1]):  # Binary image (0 and 1)
+    newIm = Image.fromarray(arr.astype(np.uint8) * 255).convert("1")  # Convert to '1' mode
+    newIm.save("result1.bmp")
+    print("Saved as 1-bit binary image (mode '1').")
+else:  # For 8-bit grayscale or RGB images
+    newIm = Image.fromarray(arr.astype(np.uint8))
+    newIm.save("result.bmp")
+    print("Saved as 8-bit image.")
