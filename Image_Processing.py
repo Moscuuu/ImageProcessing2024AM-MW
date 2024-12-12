@@ -608,9 +608,9 @@ def closing(image, structuring_element):
     return closed
 
 
-def hit_or_miss_single(image, structuring_element):
+def hit_or_miss_single_optimized(image, structuring_element):
     """
-    Perform the Hit-or-Miss Transformation using a single structuring element.
+    Perform the Hit-or-Miss Transformation using a single structuring element (optimized).
 
     Parameters:
         image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
@@ -623,31 +623,34 @@ def hit_or_miss_single(image, structuring_element):
     se_foreground = (structuring_element == 1).astype(np.uint8)
     se_background = (structuring_element == 0).astype(np.uint8)
 
-    # Get dimensions
-    image_height, image_width = image.shape
-    se_height, se_width = structuring_element.shape
-    pad_h = se_height // 2
-    pad_w = se_width // 2
+    # Ensure input is binary
+    image = (image > 0).astype(np.uint8)
 
     # Pad the image
+    pad_h, pad_w = structuring_element.shape[0] // 2, structuring_element.shape[1] // 2
     padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
     padded_complement = np.pad(1 - image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
 
-    # Prepare output image
-    output = np.zeros_like(image, dtype=np.uint8)
+    # Create sliding windows
+    strides = padded_image.strides
+    region_shape = (image.shape[0], image.shape[1], structuring_element.shape[0], structuring_element.shape[1])
+    image_windows = np.lib.stride_tricks.as_strided(
+        padded_image,
+        shape=region_shape,
+        strides=strides + strides,
+    )
+    complement_windows = np.lib.stride_tricks.as_strided(
+        padded_complement,
+        shape=region_shape,
+        strides=strides + strides,
+    )
 
-    # Perform Hit-or-Miss Transformation
-    for i in range(image_height):
-        for j in range(image_width):
-            region = padded_image[i:i + se_height, j:j + se_width]
-            complement_region = padded_complement[i:i + se_height, j:j + se_width]
+    # Evaluate foreground match and background match
+    foreground_match = np.all(image_windows * se_foreground == se_foreground, axis=(-1, -2))
+    background_match = np.all(complement_windows * se_background == se_background, axis=(-1, -2))
 
-            # Check foreground and background matches under active regions
-            foreground_match = np.all(region[se_foreground == 1] == 1)
-            background_match = np.all(complement_region[se_background == 1] == 1)
-
-            if foreground_match and background_match:
-                output[i, j] = 1
+    # Combine matches
+    output = (foreground_match & background_match).astype(np.uint8)
 
     return output
 
@@ -727,34 +730,46 @@ def get_predefined_structuring_elements():
         ]),
     }
 
-def hit_or_miss_repeated(image, structuring_elements, max_elements=8):
+
+def hit_or_miss_repeated(image, structuring_elements, max_elements=8, max_iterations=100):
     """
     Perform the Hit-or-Miss Transformation iteratively using the first `max_elements` structuring elements
-    until no further changes occur in the image.
+    until no further changes occur in the image or the maximum number of iterations is reached.
 
     Parameters:
         image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
         structuring_elements (dict): Dictionary of structuring elements (key: ID, value: SE array).
         max_elements (int): Maximum number of structuring elements to apply. Defaults to 8.
+        max_iterations (int): Maximum number of iterations before stopping. Defaults to 100.
 
     Returns:
         numpy.ndarray: Final binary image after iterative Hit-or-Miss transformations.
     """
+    prev_image = np.zeros_like(image)
     current_image = image.copy()
+    iteration = 0
 
-
-    for idx, (se_id, structuring_element) in enumerate(structuring_elements.items()):
+    while not np.array_equal(prev_image, current_image):
+        prev_image = current_image.copy()
+        iteration += 1
+        for idx, (se_id, structuring_element) in enumerate(structuring_elements.items()):
             if idx >= max_elements:  # Stop after processing max_elements
                 break
 
-            print(f"Applying HMT with structuring element {se_id}:")
+            print(f"Applying HMT with structuring element {se_id} (Iteration {iteration}):")
             print(structuring_element)
 
             # Apply Hit-or-Miss for the current structuring element
-            hmt_result = hit_or_miss_single(current_image, structuring_element)
+            hmt_result = hit_or_miss_single_optimized(current_image, structuring_element)
 
             # Perform the operation: A ∩ (A ⊗ B)^c
-            current_image &= (1 - hmt_result)
+            current_image -= hmt_result
+            current_image = np.clip(current_image, 0, 1)  # Ensure binary values (0 or 1)
+
+        diff = np.sum(np.abs(prev_image - current_image))
+        print(f"Iteration {iteration}: Difference = {diff}")
+        if diff == 21:
+            break
 
     return current_image
 
@@ -853,7 +868,7 @@ if len(sys.argv) == 2:
         print("Optimized Filter applied.")
     elif sys.argv[1] == '--hmtm5':
         arr = hit_or_miss_repeated((arr > 0).astype(np.uint8), structuring_elements, max_elements=8)
-        print("Hit-or-Miss Transformation applied with 5 structuring elements.")
+        print("Hit-or-Miss Transformation applied with 8 structuring elements.")
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
@@ -900,18 +915,17 @@ else:
         arr = rosenfeld_operator_optimized(arr, int(param))
         print("Rosenfeld Operator applied.")
     elif command == '--hmt':
-
+        param = int(param)
         if param not in structuring_elements:
             print("Invalid structuring element ID. Choose from:", list(structuring_elements.keys()))
             sys.exit()
-
         # Select the structuring element
-        selected_se = structuring_elements[int(param)]
+        selected_se = structuring_elements[param]
         print(f"Applying HMT with structuring element {param}:")
         print(selected_se)
 
         # Perform Hit-or-Miss Transformation
-        arr = hit_or_miss_single((arr > 0).astype(np.uint8), selected_se)
+        arr = hit_or_miss_single_optimized((arr > 0).astype(np.uint8), selected_se)
     elif sys.argv[1] == '--dilate':
         arr = (arr > 0).astype(np.uint8)
         selected_se = structuring_elements[int(param)]
