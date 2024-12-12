@@ -523,7 +523,7 @@ def erode(image, structuring_element):
     output = np.ones_like(image, dtype=np.uint8)
     for i in range(se_height):
         for j in range(se_width):
-            if structuring_element[i, j] == 1:  # Only consider active parts of SE
+            if structuring_element[i, j] == 1:
                 output = np.minimum(output, padded_image[i:i + image.shape[0], j:j + image.shape[1]])
 
     return output
