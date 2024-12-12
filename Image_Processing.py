@@ -497,7 +497,7 @@ def rosenfeld_single_channel_optimized(channel, P):
 
 def dilate(image, structuring_element):
     """
-    Perform morphological dilation on a binary image.
+    Perform morphological dilation on a binary image using numpy vectorization.
 
     Parameters:
         image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
@@ -506,35 +506,26 @@ def dilate(image, structuring_element):
     Returns:
         numpy.ndarray: Dilation result as a binary image.
     """
-    # Get dimensions of image and structuring element
-    image_height, image_width = image.shape
     se_height, se_width = structuring_element.shape
-
-    # Compute padding size
     pad_h = se_height // 2
     pad_w = se_width // 2
 
-    # Pad the image to handle border conditions
+    # Pad the image to handle edges
     padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
 
-    # Prepare output image
+    # Perform dilation using sliding window and numpy maximum filter
     output = np.zeros_like(image, dtype=np.uint8)
-
-    for i in range(image_height):
-        for j in range(image_width):
-            # Extract the region of interest from the padded image
-            region = padded_image[i:i + se_height, j:j + se_width]
-
-            # Apply the structuring element: if any overlap is 1, set the output to 1
-            if np.any(region & structuring_element):
-                output[i, j] = 1  # Binary result remains in 0 or 1
+    for i in range(se_height):
+        for j in range(se_width):
+            if structuring_element[i, j] == 1:  # Only consider active parts of SE
+                output = np.maximum(output, padded_image[i:i + image.shape[0], j:j + image.shape[1]])
 
     return output
 
 
 def erode(image, structuring_element):
     """
-    Perform morphological erosion on a binary image.
+    Perform morphological erosion on a binary image using numpy vectorization.
 
     Parameters:
         image (numpy.ndarray): Binary input image (2D array with 0s and 1s).
@@ -543,31 +534,19 @@ def erode(image, structuring_element):
     Returns:
         numpy.ndarray: Erosion result as a binary image.
     """
-    # Get dimensions of image and structuring element
-    image_height, image_width = image.shape
     se_height, se_width = structuring_element.shape
-
-    # Compute padding size
     pad_h = se_height // 2
     pad_w = se_width // 2
 
-    # Pad the image to handle border conditions
+    # Pad the image to handle edges
     padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=1)
 
-    # Prepare output image
+    # Perform erosion using sliding window and numpy minimum filter
     output = np.ones_like(image, dtype=np.uint8)
-
-    # Perform erosion
-    for i in range(image_height):
-        for j in range(image_width):
-            # Extract the region of interest from the padded image
-            region = padded_image[i:i + se_height, j:j + se_width]
-
-            # Apply the structuring element: if all overlap is 1, set the output to 1
-            if np.all(region[structuring_element == 1] == 1):
-                output[i, j] = 1
-            else:
-                output[i, j] = 0
+    for i in range(se_height):
+        for j in range(se_width):
+            if structuring_element[i, j] == 1:  # Only consider active parts of SE
+                output = np.minimum(output, padded_image[i:i + image.shape[0], j:j + image.shape[1]])
 
     return output
 
