@@ -4,7 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 import cv2
 from scipy.signal import convolve2d
-
+from collections import deque
 
 ######################
 # FUNCTION DEFINITIONS
@@ -677,12 +677,47 @@ def hit_or_miss_repeated(image, structuring_elements, max_elements=8):
     return current_image
 
 
+def region_growing_rgb(image, seed, threshold):
+    """
+    Perform region growing segmentation on an RGB image.
+    Args:
+        image: RGB image as a numpy array of shape (rows, cols, 3).
+        seed: Tuple (x, y) specifying the starting seed point.
+        threshold: Intensity difference threshold for growing the region.
+    Returns:
+        Binary mask of the segmented region (same dimensions as the input image, 2D).
+    """
+    rows, cols, _ = image.shape
+    segmented = np.zeros((rows, cols), dtype=bool)
+    queue = deque([seed])
+    seed_color = image[seed]  # The RGB color at the seed point
+
+    while queue:
+        x, y = queue.popleft()
+
+        if segmented[x, y]:
+            continue
+
+        segmented[x, y] = True
+
+        # Check 8-neighbor pixels
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < rows and 0 <= ny < cols and not segmented[nx, ny]:
+                neighbor_color = image[nx, ny]
+                # Calculate Euclidean distance in RGB space
+                color_diff = np.linalg.norm(neighbor_color - seed_color)
+                if color_diff <= threshold:
+                    queue.append((nx, ny))
+
+    return segmented.astype(np.uint8) * 255  # Convert boolean mask to binary image
+
 ###########################
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("lenabw.bmp")
-im2 = Image.open("lenabw.bmp")
+im = Image.open("lenac.bmp")
+im2 = Image.open("lenac.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
@@ -793,7 +828,24 @@ elif len(sys.argv) == 4:
     else:
         print("Unknown command or incorrect parameters.")
         sys.exit()
+elif len(sys.argv) == 5:  # For commands requiring 4 parameters
+        command = sys.argv[1]
+        if command == '--regiongrow':
+            if numColorChannels == 3:  # Ensure the image is RGB
+                seed_x = int(sys.argv[2])
+                seed_y = int(sys.argv[3])
+                threshold = int(sys.argv[4])
 
+                # Apply region growing
+                arr = region_growing_rgb(arr, (seed_x, seed_y), threshold)
+
+                print(f"Region Growing applied with seed=({seed_x}, {seed_y}) and threshold={threshold}.")
+            else:
+                print("Error: --regiongrow only works on RGB images.")
+                sys.exit()
+        else:
+            print("Unknown command or incorrect parameters.")
+            sys.exit()
 else:
     command = sys.argv[1]
     param = sys.argv[2]
