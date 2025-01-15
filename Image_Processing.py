@@ -717,31 +717,20 @@ def region_growing_rgb(image, seed, threshold):
 ###########################
 
 def apply_per_channel(img, transform_fn):
-    """
-    Applies 'transform_fn' to each channel if 'img' is 3D (RGB),
-    or directly if 'img' is 2D (grayscale).
-    Returns an array of the same shape, possibly complex.
-    """
     if img.ndim == 2:
-        # Grayscale: just apply transform to 2D
         return transform_fn(img)
     elif img.ndim == 3:
-        # Color: apply transform to each channel
         channels = []
         for c in range(img.shape[2]):
             single_channel = img[..., c]  # shape [H, W]
             transformed = transform_fn(single_channel)
             channels.append(transformed)
-        # Stack back on the channel axis
         return np.stack(channels, axis=2)
     else:
         raise ValueError("Image must be 2D or 3D.")
 
 def dft2d_slow_single(img2d):
-    """
-    Slow 2D DFT for one channel (2D array).
-    Returns a 2D complex array.
-    """
+
     H, W = img2d.shape
     img2d = img2d.astype(complex)
     dft = np.zeros((H, W), dtype=complex)
@@ -756,10 +745,7 @@ def dft2d_slow_single(img2d):
     return dft
 
 def idft2d_slow_single(freq2d):
-    """
-    Slow 2D IDFT for one channel (2D array).
-    Returns a 2D complex array.
-    """
+
     H, W = freq2d.shape
     out = np.zeros((H, W), dtype=complex)
     for x in range(H):
@@ -774,19 +760,13 @@ def idft2d_slow_single(freq2d):
     return out
 
 def dft2d_slow(img):
-    """Slow DFT for grayscale or RGB. Returns complex array of the same shape."""
     return apply_per_channel(img, dft2d_slow_single)
 
 def idft2d_slow(freq):
-    """Slow IDFT for grayscale or RGB. Returns complex array of the same shape."""
     return apply_per_channel(freq, idft2d_slow_single)
 
 def fft1d_spatial(x):
-    """
-    1D FFT (Cooley–Tukey, decimation-in-time), recursive.
-    x: 1D array.
-    Returns 1D complex array.
-    """
+
     x = x.astype(complex)
     N = len(x)
     if N <= 1:
@@ -802,21 +782,14 @@ def fft1d_spatial(x):
     return X
 
 def ifft1d_spatial(X):
-    """
-    1D IFFT using conjugate trick.
-    X: 1D complex array.
-    Returns 1D complex array.
-    """
+
     conjX = np.conjugate(X)
     Y = fft1d_spatial(conjX)
     y = np.conjugate(Y)
     return y / len(X)
 
 def fft2d_spatial_single(img2d):
-    """
-    2D FFT (decimation-in-time) for one channel [H, W].
-    Returns [H, W] complex array.
-    """
+
     H, W = img2d.shape
     img2d = img2d.astype(complex)
     # 1) FFT each row
@@ -830,10 +803,7 @@ def fft2d_spatial_single(img2d):
     return out
 
 def ifft2d_spatial_single(freq2d):
-    """
-    2D IFFT for one channel [H, W].
-    Returns [H, W] complex array.
-    """
+
     H, W = freq2d.shape
     # 1) IFFT each column
     col_ifft = np.zeros((H, W), dtype=complex)
@@ -846,81 +816,41 @@ def ifft2d_spatial_single(freq2d):
     return out
 
 def fft2d_spatial(img):
-    """
-    2D FFT for either grayscale [H, W] or color [H, W, C].
-    Returns complex array of same shape.
-    """
     return apply_per_channel(img, fft2d_spatial_single)
 
 def ifft2d_spatial(freq):
-    """
-    2D IFFT for grayscale or color.
-    Returns complex array of same shape.
-    """
     return apply_per_channel(freq, ifft2d_spatial_single)
 
 def spectrum_single_channel(freq2d, use_log=True):
-    """
-    Given a 2D complex array (one channel) representing Fourier coefficients,
-    compute a magnitude image (optionally in log scale), normalized to 0..255,
-    and return it as a 2D uint8 array.
-    """
-    # 1) Compute magnitude = sqrt(re^2 + im^2)
+
     magnitude = np.abs(freq2d)
 
-    # 2) Optional log transform for better dynamic range
     if use_log:
-        # log(1 + magnitude)
         magnitude = np.log1p(magnitude)
-
-    # 3) Normalize to [0..255]
-    #    Note: if the image is all zeros (e.g. freq2d=0?), guard against divide-by-zero
+    magnitude -= magnitude.min()
     max_val = magnitude.max()
     if max_val > 0:
-        magnitude = magnitude / max_val
-    # Scale to 255
+        magnitude /= max_val
     magnitude_8u = (magnitude * 255).astype(np.uint8)
 
     return magnitude_8u
 
 def visualize_spectrum(freq, use_log=True):
-    """
-    Creates a visualization of the Fourier magnitude spectrum.
-    - freq: 2D or 3D complex array (grayscale or RGB).
-    - use_log: whether to apply log(1+|F|). True by default.
-    Returns: 2D or 3D uint8 array with values in [0..255].
-    """
+
     return apply_per_channel(freq, lambda f2d: spectrum_single_channel(f2d, use_log))
 
 def frequency_mesh(N, M):
-    """
-    Returns two 2D arrays, U and V, each shaped [N, M],
-    representing 'shifted' frequency coordinates:
-        U(u,v) = (u - N/2)
-        V(u,v) = (v - M/2)
-    so that (0,0) is the DC in the center.
-    """
-    # Row indices: 0..N-1
-    # Col indices: 0..M-1
+
     u = np.arange(N) - (N // 2)   # shape [N,]
     v = np.arange(M) - (M // 2)   # shape [M,]
 
-    # Create full 2D grids
     U, V = np.meshgrid(u, v, indexing='ij')
-    # indexing='ij' => U.shape = [N,M], V.shape=[N,M]
     return U, V
 
 def apply_filter(freq, mask):
-    """
-    freq: 2D or 3D complex array (grayscale or RGB) from an FFT
-    mask: 2D array of shape [H, W] (float or complex)
 
-    Returns freq_filtered of the same shape as freq.
-    """
-    # If grayscale => freq.ndim == 2
     if freq.ndim == 2:
-        return freq * mask  # elementwise multiply
-    # If color => freq.ndim == 3
+        return freq * mask
     elif freq.ndim == 3:
         freq_filtered = np.zeros_like(freq)
         for c in range(freq.shape[2]):
@@ -930,10 +860,7 @@ def apply_filter(freq, mask):
         raise ValueError("freq must be 2D or 3D.")
 
 def create_lowpass_mask(N, M, cutoff):
-    """
-    Returns a [N, M] mask for ideal low-pass filtering,
-    with radius 'cutoff' around the center set to 1, else 0.
-    """
+
     U, V = frequency_mesh(N, M)
     R = np.sqrt(U**2 + V**2)  # distance from center
     mask = np.zeros((N, M), dtype=float)
@@ -944,64 +871,39 @@ def create_highpass_mask(N, M, cutoff):
     U, V = frequency_mesh(N, M)
     R = np.sqrt(U**2 + V**2)
     mask = np.ones((N, M), dtype=float)
-    # everything inside cutoff => 0
     mask[R <= cutoff] = 0.0
     return mask
 
 def lowpass_filter_image(img, cutoff):
-    """
-    Example applying an ideal low-pass filter to 'img'.
-    'img' can be 2D grayscale or 3D color.
-    'cutoff' is radius in frequency domain.
-    Returns the filtered image (real part).
-    """
-    # 1) FFT
-    F = fft2d_spatial(img)  # or np.fft.fft2(img) if you prefer
-    # 2) Shift
-    F_shift = np.fft.fftshift(F, axes=(0,1))  # for 2D or 3D, shift rows+cols
-    # shape is [H, W] or [H, W, 3]
 
-    N, M = F.shape[:2]  # first two dims
+    F = fft2d_spatial(img)
+    F_shift = np.fft.fftshift(F, axes=(0,1))
+
+    N, M = F.shape[:2]
     mask = create_lowpass_mask(N, M, cutoff)
 
-    # 3) Multiply
     F_filt_shift = apply_filter(F_shift, mask)
 
-    # 4) Inverse shift
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0,1))
 
-    # 5) Inverse FFT
-    img_filtered_complex = ifft2d_spatial(F_filt)  # or np.fft.ifft2
-    # 6) Real part, clip, convert
+    img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
     img_filtered = np.clip(img_filtered, 0, 255)
     return img_filtered.astype(np.uint8)
 
 def highpass_filter_image(img, cutoff):
-    """
-    Example applying an ideal low-pass filter to 'img'.
-    'img' can be 2D grayscale or 3D color.
-    'cutoff' is radius in frequency domain.
-    Returns the filtered image (real part).
-    """
-    # 1) FFT
-    F = fft2d_spatial(img)  # or np.fft.fft2(img) if you prefer
-    # 2) Shift
-    F_shift = np.fft.fftshift(F, axes=(0,1))  # for 2D or 3D, shift rows+cols
-    # shape is [H, W] or [H, W, 3]
 
-    N, M = F.shape[:2]  # first two dims
+    F = fft2d_spatial(img)
+    F_shift = np.fft.fftshift(F, axes=(0,1))
+
+    N, M = F.shape[:2]
     mask = create_highpass_mask(N, M, cutoff)
 
-    # 3) Multiply
     F_filt_shift = apply_filter(F_shift, mask)
 
-    # 4) Inverse shift
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0,1))
 
-    # 5) Inverse FFT
-    img_filtered_complex = ifft2d_spatial(F_filt)  # or np.fft.ifft2
-    # 6) Real part, clip, convert
+    img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
     img_filtered = np.clip(img_filtered, 0, 255)
     return img_filtered.astype(np.uint8)
@@ -1010,7 +912,6 @@ def create_bandpass_mask(N, M, lowRadius, highRadius):
     U, V = frequency_mesh(N, M)
     R = np.sqrt(U**2 + V**2)
     mask = np.zeros((N, M), dtype=float)
-    # 1 where lowRadius < R < highRadius
     mask[(R >= lowRadius) & (R <= highRadius)] = 1.0
     return mask
 
@@ -1018,110 +919,66 @@ def create_bandcut_mask(N, M, lowRadius, highRadius):
     U, V = frequency_mesh(N, M)
     R = np.sqrt(U**2 + V**2)
     mask = np.ones((N, M), dtype=float)
-    # 0 where lowRadius < R < highRadius
     mask[(R >= lowRadius) & (R <= highRadius)] = 0.0
     return mask
 
 def bandpass_filter_image(img, lowRadius, highRadius):
-    """
-    Example applying an ideal low-pass filter to 'img'.
-    'img' can be 2D grayscale or 3D color.
-    'cutoff' is radius in frequency domain.
-    Returns the filtered image (real part).
-    """
-    # 1) FFT
-    F = fft2d_spatial(img)  # or np.fft.fft2(img) if you prefer
-    # 2) Shift
-    F_shift = np.fft.fftshift(F, axes=(0,1))  # for 2D or 3D, shift rows+cols
-    # shape is [H, W] or [H, W, 3]
+    F = fft2d_spatial(img)
+    F_shift = np.fft.fftshift(F, axes=(0,1))
 
-    N, M = F.shape[:2]  # first two dims
+    N, M = F.shape[:2]
     mask = create_bandpass_mask(N, M, lowRadius, highRadius)
 
-    # 3) Multiply
     F_filt_shift = apply_filter(F_shift, mask)
 
-    # 4) Inverse shift
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0,1))
 
-    # 5) Inverse FFT
-    img_filtered_complex = ifft2d_spatial(F_filt)  # or np.fft.ifft2
-    # 6) Real part, clip, convert
+    img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
     img_filtered = np.clip(img_filtered, 0, 255)
     return img_filtered.astype(np.uint8)
 
 def bandcut_filter_image(img, lowRadius, highRadius):
-    """
-    Example applying an ideal low-pass filter to 'img'.
-    'img' can be 2D grayscale or 3D color.
-    'cutoff' is radius in frequency domain.
-    Returns the filtered image (real part).
-    """
-    # 1) FFT
-    F = fft2d_spatial(img)  # or np.fft.fft2(img) if you prefer
-    # 2) Shift
-    F_shift = np.fft.fftshift(F, axes=(0,1))  # for 2D or 3D, shift rows+cols
-    # shape is [H, W] or [H, W, 3]
+    F = fft2d_spatial(img)
+    F_shift = np.fft.fftshift(F, axes=(0,1))
 
-    N, M = F.shape[:2]  # first two dims
+    N, M = F.shape[:2]
     mask = create_bandcut_mask(N, M, lowRadius, highRadius)
 
-    # 3) Multiply
     F_filt_shift = apply_filter(F_shift, mask)
 
-    # 4) Inverse shift
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0,1))
 
-    # 5) Inverse FFT
-    img_filtered_complex = ifft2d_spatial(F_filt)  # or np.fft.ifft2
-    # 6) Real part, clip, convert
+    img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
     img_filtered = np.clip(img_filtered, 0, 255)
     return img_filtered.astype(np.uint8)
 
 def create_directional_highpass_mask(N, M, cutoff, angle_center, angle_width):
-    """
-    Creates a wedge-shaped high-pass mask in frequency domain.
-    - N, M: image dimensions
-    - cutoff: radius below which frequencies are blocked (high-pass)
-    - angle_center: center angle in radians (e.g. 0 = horizontal, pi/2 = vertical, etc.)
-    - angle_width: half-width of wedge in radians
-    Returns: mask [N, M] with 1 in the “pass” region, 0 in the “block” region.
-    """
-    # Build coordinate grid, with DC at center
-    u = np.arange(N) - (N//2)   # shape [N]
-    v = np.arange(M) - (M//2)   # shape [M]
-    U, V = np.meshgrid(u, v, indexing='ij')  # shape [N, M]
 
-    # Convert to polar
-    R = np.sqrt(U**2 + V**2)            # radius
-    angles = np.arctan2(V, U)           # angle in [-pi, pi]
+    u = np.arange(N) - (N//2)
+    v = np.arange(M) - (M//2)
+    U, V = np.meshgrid(u, v, indexing='ij')
 
-    # Condition 1: high-pass => pass if R > cutoff
+    R = np.sqrt(U**2 + V**2)
+    angles = np.arctan2(V, U)
+
     radius_mask = (R > cutoff)
 
-    # Condition 2: angle in wedge => pass if |angle - angle_center| <= angle_width
-    # But because angles wrap at ±pi, we measure the difference “mod 2π”
+
     angle_diff = np.abs( (angles - angle_center + np.pi) % (2*np.pi) - np.pi )
     angle_mask = (angle_diff <= angle_width)
 
-    # Combine conditions
     mask = np.zeros((N, M), dtype=float)
     mask[radius_mask & angle_mask] = 1.0
 
     return mask
 
 def load_mask_image(mask_filename):
-    """
-    Loads a binary wedge mask from 'mask_filename'.
-    Assumes the image is black/white,
-    then threshold to produce 0 or 1 in a NumPy array.
-    """
-    mask_im = Image.open(mask_filename).convert('L')
-    mask_arr = np.array(mask_im)  # shape [H, W], 0..255
 
-    # Binarize: if pixel>128 => 1, else 0
+    mask_im = Image.open(mask_filename).convert('L')
+    mask_arr = np.array(mask_im)
+
     mask_bin = (mask_arr > 128).astype(float)
     return mask_bin
 
@@ -1133,25 +990,14 @@ def get_directional_highpass_mask(
         angle_width=None,
         mask_filename=None
 ):
-    """
-    Returns a 2D high-pass directional mask, either by:
-      1) Loading it from an image file (mask_filename), OR
-      2) Generating one from parameters: cutoff, angle_center, angle_width.
-
-    If 'mask_filename' is given, we ignore the other params and load the mask file.
-    Otherwise, we call 'create_directional_highpass_mask'.
-    """
     if mask_filename is not None:
-        # 1) Load from file
         mask = load_mask_image(mask_filename)
-        # You might want to check that mask.shape == (N, M)
-        # or do a resize
+
         if mask.shape != (N, M):
             raise ValueError(f"Mask file size {mask.shape} does not match expected {N}x{M}")
         return mask
 
     else:
-        # 2) Generate in code
         if cutoff is None or angle_center is None or angle_width is None:
             raise ValueError("To generate a mask, you must provide cutoff, angle_center, and angle_width.")
         mask = create_directional_highpass_mask(N, M, cutoff, angle_center, angle_width)
@@ -1159,10 +1005,8 @@ def get_directional_highpass_mask(
 
 def directional_highpass_filter_image (image, cutoff, angle_center, angle_width):
 
-    # Suppose you have an image 'arr' of shape [H,W] or [H,W,3].
-    # 1) Do FFT
+
     F = fft2d_spatial(image)
-    # 2) Shift
     F_shift = np.fft.fftshift(F, axes=(0, 1))
 
     N, M = F.shape[:2]
@@ -1172,9 +1016,7 @@ def directional_highpass_filter_image (image, cutoff, angle_center, angle_width)
     # Option B: Generate mask from user params
     mask = get_directional_highpass_mask(N, M, cutoff, angle_center, angle_width)
 
-    # Multiply
     F_filt_shift = apply_filter(F_shift, mask)
-    # Unshift, inverse FFT, etc.
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0, 1))
     img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
@@ -1184,16 +1026,9 @@ def directional_highpass_filter_image (image, cutoff, angle_center, angle_width)
 
 
 def create_phase_mask(N, M, k, l):
-    """
-    Creates a [N, M] complex mask with magnitude=1 and
-    a linearly varying phase depending on n, m.
-
-    P(n,m) = exp( j( -(n*k*2π)/N - (m*l*2π)/M + (k+l)*π ) )
-    """
     n_idx = np.arange(N).reshape(N, 1)  # shape [N,1]
     m_idx = np.arange(M).reshape(1, M)  # shape [1,M]
 
-    # build the phase
     phase = (
             -2 * np.pi * k * n_idx / N
             - 2 * np.pi * l * m_idx / M
@@ -1204,22 +1039,14 @@ def create_phase_mask(N, M, k, l):
 
 def phase_modifying_filter(image, k, l):
 
-    # Suppose you have an image 'arr' of shape [H,W] or [H,W,3].
-    # 1) Do FFT
     F = fft2d_spatial(image)
-    # 2) Shift
     F_shift = np.fft.fftshift(F, axes=(0, 1))
 
     N, M = F.shape[:2]
-    # Option A: Load mask from file
-    #mask = get_directional_highpass_mask(N, M, mask_filename="F5mask1.bmp")
 
-    # Option B: Generate mask from user params
     mask = create_phase_mask(N, M, k, l)
 
-    # Multiply
     F_filt_shift = apply_filter(F_shift, mask)
-    # Unshift, inverse FFT, etc.
     F_filt = np.fft.ifftshift(F_filt_shift, axes=(0, 1))
     img_filtered_complex = ifft2d_spatial(F_filt)
     img_filtered = np.real(img_filtered_complex)
@@ -1231,8 +1058,8 @@ def phase_modifying_filter(image, k, l):
 # HERE THE MAIN PART STARTS
 ###########################
 #im = Image.open("lena.bmp")
-im = Image.open("F5test.bmp")
-im2 = Image.open("F5test.bmp")
+im = Image.open("result.bmp")
+im2 = Image.open("result.bmp")
 
 arr = np.array(im.getdata())
 arr2 = np.array(im2.getdata())
@@ -1323,27 +1150,21 @@ if len(sys.argv) == 2:
         arr = hit_or_miss_repeated((arr > 0).astype(np.uint8), structuring_elements, max_elements=8)
         print("Hit-or-Miss Transformation applied with 8 structuring elements.")
     elif sys.argv[1] == '--dft-slow':
-        # freq becomes a complex array, same shape as 'arr'
         freq = dft2d_slow(arr)
         print("Slow DFT done. Now 'freq' is complex.")
-        # Optionally store magnitude or do filtering ...
-        # Example: inverse:
         recon = idft2d_slow(freq)
-        # Typically if original was real, take real part
+        print("Slow IDFT done.")
         arr = np.real(recon)
 
     elif sys.argv[1] == '--fft-time':
         freq = fft2d_spatial(arr)
         print("Fast FFT done (decimation in time).")
-        # Possibly do something with freq ...
-        # Then inverse:
         recon = ifft2d_spatial(freq)
         arr = np.real(recon)
     elif sys.argv[1] == '--dft-spectrum':
 
         freq = dft2d_slow(arr)
         print("Slow DFT done.")
-        # Compute magnitude spectrum
         freq_shifted = np.fft.fftshift(freq, axes=(0, 1))
         spectrum = visualize_spectrum(freq_shifted)
         if numColorChannels == 1:
@@ -1355,15 +1176,17 @@ if len(sys.argv) == 2:
     elif sys.argv[1] == '--fft-spectrum':
         freq = fft2d_spatial(arr)
         print("Fast FFT done (decimation in time).")
-        # Compute magnitude spectrum
         freq_shifted = np.fft.fftshift(freq, axes=(0, 1))
-        spectrum = visualize_spectrum(freq_shifted)
+        spectrum = visualize_spectrum(freq_shifted,use_log=True)
         if numColorChannels == 1:
             Image.fromarray(spectrum, mode='L').save("spectrum.bmp")
             print("Spectrum saved as grayscale image.")
         else:
             Image.fromarray(spectrum, mode='RGB').save("spectrum.bmp")
             print("Spectrum saved as RGB image.")
+    elif sys.argv[1] == '--directionalHighpass':
+        arr = directional_highpass_filter_image(arr, cutoff=0, angle_center=0, angle_width=0)
+        print("Directional Highpass Filter applied.")
     else:
         print("Too few command line parameters given.\n")
         sys.exit()
@@ -1487,9 +1310,6 @@ else:
     elif sys.argv[1] == '--highpass':
         arr = highpass_filter_image(arr, int(param))
         print("Highpass Filter applied.")
-    elif sys.argv[1] == '--directionalHighpass':
-        arr = directional_highpass_filter_image(arr, cutoff=0, angle_center=0, angle_width=0)
-        print("Directional Highpass Filter applied.")
     else:
         print("Unknown command: " + command)
         sys.exit()
